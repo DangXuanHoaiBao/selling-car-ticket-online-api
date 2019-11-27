@@ -7,20 +7,25 @@ router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express' });
 });
 
-router.post('/charge', (req, res) => {
-  const amount = 2500;
+router.post('/checkout', (req, res) => {
+  
+  const {token} = req.body;
+  
   stripe.customers.create({
-    email: req.body.stripeEmail,
-    source: req.body.stripeToken
+    email: token.email,
+    source: token.id,
+    description: 'customer'
   })
   .then(customer => stripe.charges.create({
-    amount,
-    description: 'selling car ticket online',
+    amount: '2500',
+    description: 'payment for car ticket',
     currency: 'usd',
-    customer: customer.id
+    customer: customer.id,
+    receipt_email: token.email
   }))
   .then(charge => res.send({message: 'success'}))
   .catch(err => {console.log(err)});
-})
+
+});
 
 module.exports = router;
