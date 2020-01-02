@@ -11,4 +11,6 @@ router.post('/sign-up', userController.signUp);
 
 router.post('/login', userController.login);
 
+router.post('/get-fares', userController.getFaresOfUser);
+
 module.exports = router;

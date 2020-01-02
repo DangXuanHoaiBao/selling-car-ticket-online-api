@@ -10,7 +10,7 @@ const fareSchema = new Schema({
     getOnDeparture: String,
     fullName: String,
     email: String,
-    total: String,
+    fare: String,
     time: String,
     numberOfTicket: String
 }, {collection: "fares"})

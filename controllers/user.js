@@ -100,7 +100,7 @@ exports.createTrip = function(req, res){
         month: fareInfo.date.m,
         year: fareInfo.date.y,
         time: fareInfo.time,
-        bookedChair: [fareInfo.numberChair]
+        bookedChair: fareInfo.numberChair
       }
       tripModel.create(trip, function(err){
         if(!err){
@@ -126,6 +126,15 @@ exports.createTrip = function(req, res){
 
 exports.createFare = function(req, res){
   const {fareInfo} = req.body;
+  let email;
+  const username = localStorage.getItem("username");
+  if(username){
+    email = username;
+  }
+  else{
+    email = fareInfo.email;
+  }
+
   const fare = {
     departure: fareInfo.departure,
     destination: fareInfo.destination,
@@ -135,10 +144,11 @@ exports.createFare = function(req, res){
     time: fareInfo.time,
     getOnDeparture: fareInfo.getOnDeparture,
     fullName: fareInfo.fullName,
-    email: fareInfo.email,
-    total: fareInfo.total,
+    email: email,
+    fare: fareInfo.fare,
     numberOfTicket: fareInfo.numberOfTicket
   }
+
   fareModel.create(fare, function(err, result){
     if(result){
       const transporter = nodemailer.createTransport("smtps://hoaibaodang1997%40gmail.com:baodang1997@smtp.gmail.com");
@@ -217,26 +227,15 @@ exports.login = function (req, res, next) {
   })(req, res);
 }
 
-
-// function(req, res){
-//   passport.authenticate('local', {session: false}, (err, user, message) => {
-//       if(err || !user){
-//           console.log(err);
-//           return res.status(400).json({
-//               message
-//           });
-//       }
-//       console.log(user);
-//       req.login(user, {session: false}, (err)=>{
-//           if(err){
-//               res.send(err);
-//           }
-//           const token = jwt.sign(user, "secret");
-//           return res.status(200).json({
-//               user,
-//               message, 
-//               token
-//           });
-//       })
-//   })(req, res);
-// }
+exports.getFaresOfUser = function(req, res){
+  const {email} = req.body;
+  fareModel.find({email})
+  .then(fares => {
+    if(fares){
+      return res.status(200).json(fares)
+    }
+    else{
+      return res.status(400).json("Không tìm thấy fares");
+    }
+  })
+}
