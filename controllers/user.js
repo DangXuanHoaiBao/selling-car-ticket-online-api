@@ -4,6 +4,7 @@ const {routeModel} = require("../models/route");
 const {tripModel} = require("../models/trip");
 const {fareModel} = require("../models/fare");
 const {billModel} = require("../models/bill");
+const {userModel} = require("../models/user");
 
 exports.checkout = (req, res) => {
   
@@ -28,20 +29,6 @@ exports.checkout = (req, res) => {
       month: charge.payment_method_details.card.exp_month,
       year: charge.payment_method_details.card.exp_year
     }
-
-    const transporter = nodemailer.createTransport("smtps://hoaibaodang1997%40gmail.com:baodang1997@smtp.gmail.com");
-    const mailOptions = {
-      from: 'BaoDang',
-      to: bill.email,
-      subject: "mail confirm book ticket",
-      html: '<b>You must go to the nearest facility to receive ticket before 2 day departure</b>'
-    }
-    transporter.sendMail(mailOptions, function(err, info){
-      if(err){
-        return console.log(err);
-      }
-      console.log(info.response)
-    });
 
     billModel.create(bill, function(err){
       if(!err){
@@ -152,8 +139,22 @@ exports.createFare = function(req, res){
     total: fareInfo.total,
     numberOfTicket: fareInfo.numberOfTicket
   }
-  fareModel.create(fare, function(err){
-    if(!err){
+  fareModel.create(fare, function(err, result){
+    if(result){
+      const transporter = nodemailer.createTransport("smtps://hoaibaodang1997%40gmail.com:baodang1997@smtp.gmail.com");
+      const mailOptions = {
+        from: 'BaoDang',
+        to: fare.email,
+        subject: "mail confirm book ticket",
+        html: `You must go to the nearest facility to receive ticket before 2 day departure with code: ${result._id}`
+      }
+      transporter.sendMail(mailOptions, function(err, info){
+        if(err){
+          return console.log(err);
+        }
+        console.log(info.response)
+      });
+
       return res.status(200).json("tạo vé thành công");
     }
   })
@@ -172,3 +173,70 @@ exports.getTripByDepDesDateAndTime = function(req, res){
   })
   .catch(err => console.log(err))
 }
+
+exports.signUp = function(req, res){
+  const {email, password} = req.body;
+  const user = {
+    email,
+    password
+  }
+  userModel.findOne({"email": email})
+  .then(result => {
+    if(result){
+      return res.status(400).json("email đã tồn tại");
+    }
+    else{
+      userModel.create(user, function(err){
+        if(!err){
+          return res.status(200).json("tạo tài khoản thành công");
+        }
+        else{
+          return res.status(400).json("tạo tài khoản thất bại");
+        }
+      })
+    }
+  })
+}
+
+exports.login = function (req, res, next) {
+  passport.authenticate('local', {session: false}, (err, user, info) => {
+      if (err || !user) {
+          return res.status(400).json({
+              message: 'email hoặc password không đúng',
+              user   : user
+          });
+      }
+     req.login(user, {session: false}, (err) => {
+         if (err) {
+             res.send(err);
+         }
+         // generate a signed son web token with the contents of user object and return it in the response
+         const token = jwt.sign(user, 'your_jwt_secret');
+         return res.json({user, token});
+      });
+  })(req, res);
+}
+
+
+// function(req, res){
+//   passport.authenticate('local', {session: false}, (err, user, message) => {
+//       if(err || !user){
+//           console.log(err);
+//           return res.status(400).json({
+//               message
+//           });
+//       }
+//       console.log(user);
+//       req.login(user, {session: false}, (err)=>{
+//           if(err){
+//               res.send(err);
+//           }
+//           const token = jwt.sign(user, "secret");
+//           return res.status(200).json({
+//               user,
+//               message, 
+//               token
+//           });
+//       })
+//   })(req, res);
+// }

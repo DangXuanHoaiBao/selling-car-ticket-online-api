@@ -9,7 +9,7 @@ const mongoose = require("mongoose");
 
 const indexRouter = require("./routes/index");
 const usersRouter = require("./routes/users");
-
+require("./config/passport");
 const app = express();
 
 const mongoDBString = "mongodb+srv://BaoDang:baodang0305@cluster0-c85gl.mongodb.net/mhh-selling-car-ticket-online";
