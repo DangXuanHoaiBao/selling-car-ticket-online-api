@@ -249,16 +249,17 @@ exports.login = function (req, res, next) {
 
 //Check type account Google or Facebook is exist to decide sign up or login
 exports.checkToSignUpOrLogin = async(req, res) => {
-  const {fullName, email, password, userImg, typeAccount} = req.body;
+  const {fullName, email, password, urlImg, typeAccount} = req.body;
   const user = {
       fullName: fullName,
       email: email,
       password: password,
-      role: '',
-      userImg: userImg,
+      urlImg: urlImg,
       typeAccount: typeAccount
   }
+  console.log(email);
   const result = await userModel.findOne({email: email});
+  console.log(result);
   if(!result){
       userModel.create(user, function(err){
           if(err){
@@ -267,10 +268,7 @@ exports.checkToSignUpOrLogin = async(req, res) => {
           }
       });
   }
-  else{
-      console.log("Có tồn tại");
-      user.role = result.role;
-  }   
+  
  
   const token = jwt.sign(user, "secret");
   return res.status(200).json({user, token});
