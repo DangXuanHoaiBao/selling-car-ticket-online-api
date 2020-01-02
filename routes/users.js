@@ -11,4 +11,10 @@ router.post('/sign-up', userController.signUp);
 
 router.post('/login', userController.login);
 
+router.post('/update-info', userController.update_info);
+ 
+router.post('/change-password', userController.change_password);
+
+router.post('/check-to-signup-or-login', userController.checkToSignUpOrLogin);
+
 module.exports = router;
