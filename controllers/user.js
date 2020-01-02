@@ -1,10 +1,15 @@
 const stripe = require("stripe")("sk_test_cYmuj2bLSojoUobO6f98sCnE00VVt5m4Ay");
 const nodemailer = require("nodemailer");
+const passport = require('passport');
+const jwt = require('jsonwebtoken');
 const {routeModel} = require("../models/route");
 const {tripModel} = require("../models/trip");
 const {fareModel} = require("../models/fare");
 const {billModel} = require("../models/bill");
 const {userModel} = require("../models/user");
+const {updateInfo} = require("../models/user");
+const {changePassword} = require("../models/user");
+const {commentModel} = require("../models/comment");
 
 exports.checkout = (req, res) => {
   
@@ -125,16 +130,14 @@ exports.createTrip = function(req, res){
 }
 
 exports.createFare = function(req, res){
-  const {fareInfo} = req.body;
-  let email;
-  const username = localStorage.getItem("username");
-  if(username){
-    email = username;
+  const {fareInfo, email} = req.body;
+  let emailUser;
+  if(email !== ""){
+    emailUser = email;
   }
   else{
-    email = fareInfo.email;
+    emailUser = fareInfo.email
   }
-
   const fare = {
     departure: fareInfo.departure,
     destination: fareInfo.destination,
@@ -144,7 +147,7 @@ exports.createFare = function(req, res){
     time: fareInfo.time,
     getOnDeparture: fareInfo.getOnDeparture,
     fullName: fareInfo.fullName,
-    email: email,
+    email: emailUser,
     fare: fareInfo.fare,
     numberOfTicket: fareInfo.numberOfTicket
   }
@@ -184,36 +187,38 @@ exports.getTripByDepDesDateAndTime = function(req, res){
   .catch(err => console.log(err))
 }
 
-exports.signUp = function(req, res){
-  const {email, password} = req.body;
-  const user = {
-    email,
-    password
+exports.signUp = async(req, res) => {
+  const {fullName, birthDay, gender, address, email, password, urlImg} = req.body;
+  const result = await userModel.findOne({email: email});
+  if(result){
+      console.log('email da ton tai');
+      return res.status(400).json({message: 'Email đã tồn tại'});
   }
-  userModel.findOne({"email": email})
-  .then(result => {
-    if(result){
-      return res.status(400).json("email đã tồn tại");
-    }
-    else{
-      userModel.create(user, function(err){
-        if(!err){
-          return res.status(200).json("tạo tài khoản thành công");
-        }
-        else{
-          return res.status(400).json("tạo tài khoản thất bại");
-        }
-      })
-    }
-  })
+  // const hassPassword = await bcrypt.hash(password, '10');
+  const user = {
+      fullName: fullName,
+      birthDay: birthDay,
+      gender: gender,
+      address: address,
+      email: email,
+      password: password,
+      urlImg,
+  }
+  userModel.create(user, function(err){
+      if(err){
+          return res.status(400).json({message: err});
+      }
+      console.log("Đăng ký thành công");
+  });
+  return res.status(200).json({message: 'Đăng ký thành công'});
 }
 
 exports.login = function (req, res, next) {
-  passport.authenticate('local', {session: false}, (err, user, info) => {
+  passport.authenticate('local', {session: false}, (err, user, message) => {
       if (err || !user) {
+          console.log(err);
           return res.status(400).json({
-              message: 'email hoặc password không đúng',
-              user   : user
+              message
           });
       }
      req.login(user, {session: false}, (err) => {
@@ -221,8 +226,8 @@ exports.login = function (req, res, next) {
              res.send(err);
          }
          // generate a signed son web token with the contents of user object and return it in the response
-         const token = jwt.sign(user, 'your_jwt_secret');
-         return res.json({user, token});
+         const token = jwt.sign(user, 'secret');
+         return res.status(200).json({user, token});
       });
   })(req, res);
 }
@@ -236,6 +241,116 @@ exports.getFaresOfUser = function(req, res){
     }
     else{
       return res.status(400).json("Không tìm thấy fares");
+    }
+  })
+}
+
+//Check type account Google or Facebook is exist to decide sign up or login
+exports.checkToSignUpOrLogin = async(req, res) => {
+  const {fullName, email, password, userImg, typeAccount} = req.body;
+  const user = {
+      fullName: fullName,
+      email: email,
+      password: password,
+      role: '',
+      userImg: userImg,
+      typeAccount: typeAccount
+  }
+  const result = await userModel.findOne({email: email});
+  if(!result){
+      userModel.create(user, function(err){
+          if(err){
+              console.log(err);
+              return res.status(400).json({error: err});
+          }
+      });
+  }
+  else{
+      console.log("Có tồn tại");
+      user.role = result.role;
+  }   
+ 
+  const token = jwt.sign(user, "secret");
+  return res.status(200).json({user, token});
+
+}
+
+//Update info of user
+exports.update_info = (req, res, next) => {
+    passport.authenticate("jwt", { session: false }, async (err, user, info) => {
+      if (err) {
+        console.log(err);
+        return res.status(400).json({
+          error: err
+        });
+      }
+  
+      if (info) {
+        return res.status(400).json({
+          message: info.message
+        });
+      } else {
+        const { newUser } = req.body;
+        console.log(newUser);
+        if (newUser.fullName === '') {
+          return res.status(400).json({
+            message: "Vui lòng điền đủ thông tin"
+          });
+        }
+        updateInfo(user.email, newUser, res);
+      }
+    })(req, res, next);
+};
+
+exports.change_password = (req, res, next) => {
+  passport.authenticate("jwt", { session: false }, async (err, user, info) => {
+    if (err) {
+      return res.status(400).json({
+        error: err
+      });
+    }
+
+    if (info) {
+      return res.status(400).json({
+        message: info.message
+      });
+    } else {
+      const { newPassword, oldPassword } = req.body;
+      console.log("old " + oldPassword);
+      console.log("new " + newPassword);
+      console.log(user.username);
+      if (!newPassword || !oldPassword) {
+          return res.status(400).json({
+              message: "Vui lòng điền đủ thông tin"
+          });
+      }
+      changePassword(user.email, user.password, newPassword, oldPassword, res);
+    }
+  })(req, res, next);
+};
+
+exports.addComment = function(req, res){
+  const {comment, user} = req.body;
+  commentModel.create({"comment": comment, "email": user.email, "fullName": user.fullName, "urlImg": user.urlImg})
+  .then(comment => {
+    if(comment){
+      return res.status(200).json("Thêm comment thành công");
+    }
+    else{
+      return res.status(400).json("Thêm comment thất bại")
+    }
+  })
+  .catch(err => console.log(err));
+}
+
+exports.getAllComments = function(req, res){
+  commentModel.find({})
+  .then(comments => {
+    if(comments){
+      return res.status(200).json(comments)
+    }
+    else{
+      return res.status(400).json("Không có comment nào");
     }
   })
 }
